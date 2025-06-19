@@ -1,0 +1,53 @@
+ace.edit(document.querySelector('.ace_editor')).setValue(`import java.util.*;
+
+class CricketScoreCalculator {
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+       
+        String input = scanner.nextLine();
+        String[] balls = input.split(" ");
+
+        int p1Runs = 0;
+        int p2Runs = 0;
+        int extras = 0;
+        int legalDeliveries = 0;
+        boolean isP1OnStrike = true;
+
+        for (String ball : balls) {
+            switch (ball) {
+                case "W":
+                case "N":
+                    extras += 1;
+                    break;
+                case ".":
+                    legalDeliveries++;
+                    break;
+                default:
+                    int runs = Integer.parseInt(ball);
+                    legalDeliveries++;
+
+                    if (isP1OnStrike) {
+                        p1Runs += runs;
+                    } else {
+                        p2Runs += runs;
+                    }
+
+                    // Change strike on odd runs
+                    if (runs % 2 != 0) {
+                        isP1OnStrike = !isP1OnStrike;
+                    }
+                    break;
+            }
+
+            // Change strike after every 6 legal deliveries (end of over)
+            if (legalDeliveries % 6 == 0) {
+                isP1OnStrike = !isP1OnStrike;
+            }
+        }
+
+        System.out.println("P1 - " + p1Runs + ", P2 - " + p2Runs + ", Extras - " + extras);
+    }
+}
+
+`);
