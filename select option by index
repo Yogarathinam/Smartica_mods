@@ -1,0 +1,60 @@
+Click Option by Index (in Console)
+Assuming you already have the 4 visible options extracted like this:
+
+
+const visibleOptions = [...new Set(
+  Array.from(document.querySelectorAll('span'))
+    .filter(span =>
+      span.innerText.trim().match(/^Rs\.\d+/) &&
+      span.offsetParent !== null // visible
+    )
+    .map(span => span.innerText.trim())
+)];
+
+
+Then use this function:
+
+
+function clickOptionByIndex(index) {
+  const spans = Array.from(document.querySelectorAll('span'));
+  
+  // Get visible and unique options
+  const visibleOptions = [...new Set(
+    spans
+      .filter(span =>
+        span.innerText.trim().match(/^Rs\.\d+/) &&
+        span.offsetParent !== null
+      )
+      .map(span => span.innerText.trim())
+  )];
+
+  // Safety check
+  if (index < 0 || index >= visibleOptions.length) {
+    console.error('❌ Invalid index:', index);
+    return;
+  }
+
+  const optionText = visibleOptions[index];
+
+  // Now click using the previous clickOptionByText logic
+  const match = spans.find(span =>
+    span.innerText.trim() === optionText &&
+    span.offsetParent !== null
+  );
+
+  const wrapper = match?.closest('div, label, button');
+  if (wrapper) {
+    wrapper.click();
+    console.log(`✅ Clicked option [${index}]: ${optionText}`);
+  } else {
+    console.warn("❌ Couldn't find clickable wrapper for:", optionText);
+  }
+}
+👇 Try it in Console
+Just run:
+
+clickOptionByIndex(2); // clicks the 3rd option
+
+
+🔄 BONUS: Store for Reuse
+After running it once in your browser DevTools, you can reuse clickOptionByIndex(index) for every AI answer that returns an index.
