@@ -1,0 +1,17 @@
+function clickNextButton() {
+  const elements = Array.from(document.querySelectorAll('button, div, span, a'));
+  
+  const nextBtn = elements.find(el =>
+    el.innerText.trim().toLowerCase() === 'next' &&
+    el.offsetParent !== null // visible only
+  );
+
+  if (nextBtn) {
+    nextBtn.click();
+    console.log("✅ Clicked 'Next' button.");
+  } else {
+    console.warn("❌ 'Next' button not found.");
+  }
+}
+Run code:
+clickNextButton();
