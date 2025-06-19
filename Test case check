@@ -1,0 +1,10 @@
+const passed = [...document.querySelectorAll('td')].filter(el =>
+  el.innerText.trim() === 'Success' &&
+  el.offsetParent !== null &&
+  el.className.includes('t-border-b') // Additional filter to make it precise
+);
+
+console.log(`✅ ${passed.length} real test case(s) passed.`);
+passed.forEach((el, i) => {
+  console.log(`✔️ Test ${i + 1}:`, el.innerText);
+});
