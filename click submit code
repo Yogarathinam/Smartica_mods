@@ -1,0 +1,3 @@
+[...document.querySelectorAll('button')].find(btn =>
+  btn.innerText.trim() === 'Submit Code'
+)?.click();
