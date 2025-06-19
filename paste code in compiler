@@ -1,0 +1,16 @@
+function simulateTyping(text) {
+  const textarea = document.activeElement;
+  for (let i = 0; i < text.length; i++) {
+    textarea.dispatchEvent(new InputEvent('input', {
+      bubbles: true,
+      cancelable: true,
+      data: text[i],
+      inputType: 'insertText'
+    }));
+    textarea.value += text[i];
+  }
+  console.log('✅ Code typed character-by-character.');
+}
+
+// Paste your code as string:
+simulateTyping(`for i in range(5):\n  print(i)`);
