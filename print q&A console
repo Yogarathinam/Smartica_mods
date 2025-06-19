@@ -1,0 +1,23 @@
+const spans = Array.from(document.querySelectorAll('span'));
+
+// Step 1: Get the question (long text, visible)
+const questionSpan = spans.find(span =>
+  span.innerText.length > 20 &&
+  span.offsetParent !== null // only visible
+);
+
+console.log('🧠 Question:', questionSpan?.innerText);
+
+// Step 2: Get visible, unique option texts that start with Rs.
+const optionSpans = spans.filter(span =>
+  span.innerText.trim().match(/^Rs\.\d+/) &&
+  span.offsetParent !== null // visible
+);
+
+// Remove duplicate texts
+const uniqueOptions = [...new Set(optionSpans.map(span => span.innerText.trim()))];
+
+console.log('🔘 Options:');
+uniqueOptions.forEach((text, i) => {
+  console.log(`${String.fromCharCode(65 + i)}. ${text}`);
+});
