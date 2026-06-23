@@ -25,7 +25,7 @@ To use AgentBridge, you need to set up two things: the **Desktop Client** (which
 ### Phase 1: Install the AgentBridge Desktop Client
 The desktop client acts as the brain, securely logging you in and handling the AI processing.
 
-1. Head over to the [Releases page](https://agentbridge-cloud.vercel.app/t) on GitHub.
+1. Head over to the [Releases page](https://agentbridge-cloud.vercel.app/) on GitHub.
 2. Download the latest **`AgentBridge-Installer.exe`**.
 3. Run the installer and open the **AgentBridge App**.
 4. Click the **Authenticate** button. This will open a browser window—log in securely using your Google Account.
