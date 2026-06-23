@@ -2,5 +2,6 @@
   "version": "1.0.0",
   "release_date": "2026-06-23",
   "notes": "Initial release of SmartAgent Helper Extension",
-  "download_url": "https://github.com/Yogarathinam/Smartica_mods/archive/refs/heads/main.zip"
+  "download_url": "https://github.com/Yogarathinam/Smartica_mods/archive/refs/heads/main.zip",
+  "force_update": true
 }

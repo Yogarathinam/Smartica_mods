@@ -36,7 +36,7 @@
   function getLogSeverity(text) {
     const t = String(text || '').toLowerCase();
     if (t.includes('✅') || t.includes('success') || t.includes('solved') || t.includes('passed') || t.includes('✔️')) return 'success';
-    if (t.includes('❌') || t.includes('error') || t.includes('failed') || t.includes('aborted') || t.includes('critical')) return 'error';
+    if (t.includes('❌') || t.includes('error') || t.includes('failed') || t.includes('aborted') || t.includes('critical') || t.includes('manually switch')) return 'error';
     if (t.includes('⚠️') || t.includes('warning') || t.includes('fallback') || t.includes('halt') || t.includes('stop') || t.includes('fix') || t.includes('skipping')) return 'warning';
     return 'info';
   }
@@ -169,14 +169,24 @@
   }
 
   function setEditorCodeWithAceApi(code) {
-    sendLog('💻 Trying Ace API code injection...');
+    sendLog('💻 Purging editor and injecting via Ace API...');
     const ed = getAceEditor();
     if (!ed) return false;
-    try { ed.getSession().setValue(code); }
+    try { 
+        // FIX: Explicitly clear the editor before pasting
+        ed.setValue('', -1);
+        ed.session.setValue('');
+        ed.getSession().setValue(code); 
+    }
     catch (_) {
-      try { ed.session.setValue(code); }
+      try { 
+        ed.session.setValue(code); 
+      }
       catch (_) {
-        try { ed.setValue(code, 1); ed.clearSelection(); }
+        try { 
+            ed.setValue(code, 1); 
+            ed.clearSelection(); 
+        }
         catch (e) { dbg('Ace setValue failed', e?.message || String(e)); return false; }
       }
     }
@@ -188,12 +198,13 @@
   }
 
   function setEditorCodeWithTextareaFallback(code) {
-    sendLog('💻 Trying textarea fallback injection...');
+    sendLog('💻 Purging editor and trying textarea fallback injection...');
     const textarea = getAceTextarea();
     if (!textarea) return false;
     try {
       textarea.focus();
       textarea.select(); 
+      textarea.value = ''; // Force clear
       
       const success = document.execCommand('insertText', false, code);
       
@@ -210,7 +221,6 @@
   function setEditorCode(code) { return (hasAceGlobal() && setEditorCodeWithAceApi(code)) || setEditorCodeWithTextareaFallback(code); }
 
   function getCurrentLanguage() {
-    // Specifically target the Angular dropdown from the user's HTML snippet
     const angularDropdown = document.querySelector('app-language-dropdown .inner-text');
     if (angularDropdown) return textOf(angularDropdown);
 
@@ -224,7 +234,6 @@
       if (m) return m[1];
     }
     
-    // Deep fallback
     const codeTags = [...document.querySelectorAll('code[class*="language-"]')];
     if (codeTags.length > 0) return codeTags[0].className.replace('language-', '').trim();
     
@@ -242,17 +251,15 @@
     );
   }
 
-  // BULLETPROOF LANGUAGE SELECTOR
   async function selectLanguage(language = 'Java') {
-    sendLog(`⚙️ Trying to switch language to: ${language}`);
+    sendLog(`⚙️ Validating active language is set to: ${language}`);
     const wanted = normalizeText(language);
     const current = normalizeText(getCurrentLanguage());
-    if (current === wanted) { sendLog(`✅ Language already set to ${language}`); return true; }
+    if (current === wanted) { sendLog(`✅ Language verified as ${language}`); return true; }
     
     const dropdown = getLanguageDropdown();
     if (!dropdown || !visible(dropdown)) { sendLog('⚠️ Language dropdown not found.'); return false; }
     
-    // Check if it's a native select element
     if (dropdown.tagName.toLowerCase() === 'select') {
         const option = [...dropdown.options].find(opt => normalizeText(opt.innerText) === wanted || normalizeText(opt.value) === wanted);
         if (option) {
@@ -263,24 +270,19 @@
         }
     }
     
-    // Custom Div Dropdown interaction
     safeClick(dropdown, 'language dropdown');
     await sleep(CONFIG.DROPDOWN_WAIT_MS);
     
-    // Global search for the dropdown option (Angular usually appends options to the end of the body)
     const allCandidates = [...document.querySelectorAll('span, div, li, [role="option"], mat-option')].filter(visible);
     
-    // Strategy 1: Exact Match (Exclude the dropdown container itself to avoid re-clicking the header)
     let option = allCandidates.find(el => normalizeText(textOf(el)) === wanted && !dropdown.contains(el) && el !== dropdown);
 
-    // Strategy 2: Label/Button Exact Match
     if (!option) {
       option = [...document.querySelectorAll('label, li, button')]
         .filter(visible)
         .find(el => normalizeText(textOf(el)) === wanted);
     }
     
-    // Strategy 3: Partial Match (Short text only to avoid clicking a paragraph)
     if (!option) {
       option = allCandidates.find(el => normalizeText(textOf(el)).includes(wanted) && textOf(el).length < 20);
     }
@@ -297,8 +299,8 @@
     const after = normalizeText(getCurrentLanguage());
     if (after === wanted) { sendLog(`✅ Language verified as ${language}`); return true; }
 
-    sendLog(`⚠️ Language verification uncertain, UI shows: "${getCurrentLanguage()}"`);
-    return false; // Let the engine fallback to reading the active language
+    sendLog(`⚠️ Auto-select failed. UI still shows: "${getCurrentLanguage()}"`);
+    return false;
   }
 
   function isCodingByText() {
@@ -461,7 +463,7 @@
       if (btn) {
         sendLog('🖱️ Found Submit Code button, triggering click event...');
         const success = safeClick(btn, 'Submit Code');
-        if (success) return true;
+        if (success) return true; // Fix: Guarantee it only clicks once and exits the loop immediately
       }
       
       await sleep(500); 
@@ -602,7 +604,6 @@
     ].join('\n');
   }
 
-  // STRICT THREAT PROMPT: Forces AI to obey the fallback language
   function buildCodingPrompt(question, language) {
     return [
       `You are an expert ${language} programmer.`,
@@ -668,7 +669,6 @@
     const question = fixture.question || await getQuestionWithRetry('mcq');
     const options = getOptions();
 
-    // SMOOTH SKIP: If extraction totally fails, skip safely instead of throwing errors
     if (!question || options.length < 2) {
        sendLog(`⚠️ Failed to extract MCQ question completely. Skipping by random selection...`, null, 'warning');
        const randomIndex = Math.max(0, Math.floor(Math.random() * (options.length || 4)));
@@ -719,7 +719,6 @@
 
     const question = fixture.question || await getQuestionWithRetry('coding');
     
-    // SMOOTH SKIP: If extraction totally fails, skip safely instead of throwing errors
     if (!question || question.length < 20) {
       sendLog(`⚠️ Failed to extract coding question. Skipping to next...`, null, 'warning');
       const moved = clickNextButton();
@@ -727,12 +726,15 @@
     }
 
     let targetLanguage = 'Java';
+    
+    // FIX: Interactive Language Enforcement
     if (CONFIG.FORCE_JAVA_FOR_CODE) {
       const ok = await selectLanguage('Java');
       if (!ok) {
-        const currentLang = getCurrentLanguage();
-        targetLanguage = currentLang && currentLang.length > 1 ? currentLang : 'Python'; 
-        sendLog(`⚠️ Failed to force Java via UI. AI Prompt forcefully updated to solve using detected language: [${targetLanguage}]`, null, 'warning');
+         // Pause engine and prompt the user to manually switch instead of falling back to Python.
+         sendLog(`❌ Please manually switch the editor to Java and click start again.`, null, 'error');
+         stopEngine('Language requirement failed');
+         throw new Error('Waiting for user to manually switch to Java.'); 
       }
     } else {
       targetLanguage = getCurrentLanguage() || 'Java';
@@ -831,8 +833,10 @@
       broadcastState();
       sendLog(`✅ Single question completed. Advanced: ${result.movedNext}`);
     } catch (err) {
-      sendLog(`❌ Error during single solve: ${err.message}`);
-      dbg('runSingleMode error stack', err?.stack || 'no stack');
+      if (err.message !== 'Waiting for user to manually switch to Java.') {
+         sendLog(`❌ Error during single solve: ${err.message}`);
+         dbg('runSingleMode error stack', err?.stack || 'no stack');
+      }
     }
     
     sendLog('⏹ Single mode finished');
@@ -873,7 +877,9 @@
         sendLog(`⏳ Waiting ${CONFIG.NEXT_DELAY_MS}ms for next question...`);
         await sleep(CONFIG.NEXT_DELAY_MS);
       } catch (err) {
-        // ANTI-CRASH: Instead of breaking the loop, we wait 5 seconds and keep trying
+        if (err.message === 'Waiting for user to manually switch to Java.') {
+            break; // Stop loop cleanly because user intervention is required
+        }
         sendLog(`⚠️ Critical error in loop: ${err.message}. Retrying in 5s...`, null, 'error');
         dbg('runContinuousMode error stack', err?.stack || 'no stack');
         await sleep(5000); 

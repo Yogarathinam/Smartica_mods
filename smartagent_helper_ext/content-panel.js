@@ -1,7 +1,10 @@
-// content-panel.js - SmartAgent Helper Floating Control Panel
+// content-panel.js - SmartAgent Helper Floating Control Panel (Shadow DOM + Updater + Anti-Spam)
 (() => {
   'use strict';
   
+  const CURRENT_VERSION = "1.0.0";
+  const UPDATE_URL = "https://raw.githubusercontent.com/Yogarathinam/Smartica_mods/refs/heads/main/version.json";
+
   function initSmartAgentUI() {
     if (document.getElementById('smart-agent-host')) return;
   
@@ -82,7 +85,7 @@
       .btn-minimize { color: var(--text-muted); padding: 4px; border-radius: 6px; }
       .btn-minimize:hover { color: #fff; background: rgba(255,255,255,0.1); }
       
-      .body { padding: 16px; gap: 14px; }
+      .body { padding: 16px; gap: 14px; position: relative; }
       .card { background: var(--bg-card); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px; padding: 12px 14px; }
       
       .ping-wrap { position: relative; width: 10px; height: 10px; margin-right: 8px; }
@@ -151,11 +154,7 @@
       
       .stream-viz { display: flex; align-items: flex-end; gap: 3px; height: 14px; margin-left: auto; padding-left: 10px; }
       .stream-bar { width: 3px; background: var(--accent-pink); border-radius: 2px; }
-      
-      /* Standard Animated Bars */
       .hud-toast.show:not(.persistent) .stream-bar { animation: eq 1s ease-in-out infinite alternate; }
-      
-      /* Paused/Persistent Bars */
       .hud-toast.persistent .stream-bar { animation: none !important; height: 30%; opacity: 0.4; }
       
       .stream-bar:nth-child(1) { height: 40%; animation-delay: 0.1s; }
@@ -163,8 +162,28 @@
       .stream-bar:nth-child(3) { height: 60%; animation-delay: 0.5s; }
       .stream-bar:nth-child(4) { height: 100%; animation-delay: 0.2s; }
       @keyframes eq { 0% { height: 20%; } 100% { height: 100%; } }
-
       @keyframes saFadeIn { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
+
+      /* UPDATE OVERLAY */
+      .update-overlay {
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(11, 6, 22, 0.98); backdrop-filter: blur(10px);
+        z-index: 100; border-radius: 16px; padding: 24px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center; border: 1px solid var(--accent-red);
+      }
+      .update-title { color: var(--accent-red); font-size: 16px; font-weight: 900; letter-spacing: 0.1em; margin: 12px 0 6px 0; }
+      .update-text { font-size: 11px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+      .update-btn {
+        background: var(--accent-red); color: #fff; padding: 10px 20px; border-radius: 8px;
+        text-decoration: none; font-weight: 800; font-size: 12px; letter-spacing: 0.05em;
+        box-shadow: 0 4px 15px rgba(244, 63, 94, 0.4); transition: 0.2s; margin-bottom: 20px; display: inline-block;
+      }
+      .update-btn:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(244, 63, 94, 0.6); }
+      .update-guide {
+        font-size: 10px; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.5);
+        padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); line-height: 1.6;
+      }
     `;
     shadow.appendChild(style);
   
@@ -192,7 +211,7 @@
           </div>
         </div>
   
-        <div class="body flex-col">
+        <div class="body flex-col" id="sa-panel-body">
           <div class="card flex-row justify-between">
             <div class="flex-row">
               <div class="ping-wrap">
@@ -255,6 +274,21 @@
               </div>
             </div>
           </div>
+
+          <div id="sa-update-overlay" class="update-overlay hidden">
+             <div style="color:var(--accent-red);">${Icons.warning}</div>
+             <div class="update-title">UPDATE REQUIRED</div>
+             <div class="update-text">A critical new version (<span id="sa-new-version"></span>) is available.<br>Your current version (${CURRENT_VERSION}) is deprecated.</div>
+             <a id="sa-download-link" href="#" target="_blank" class="update-btn">DOWNLOAD UPDATE .ZIP</a>
+             <div class="update-guide">
+                <b style="color:#fff;">How to install:</b><br>
+                1. Extract the downloaded .zip file.<br>
+                2. Open Chrome and go to <b>chrome://extensions/</b><br>
+                3. Enable <b>Developer Mode</b> (top right corner).<br>
+                4. Click <b>Load unpacked</b> and select the extracted folder.
+             </div>
+          </div>
+
         </div>
       </div>
   
@@ -316,6 +350,30 @@
       } catch (_) {}
     };
   
+    // --- UPDATE CHECKER ---
+    async function checkForUpdates() {
+      try {
+          const response = await fetch(UPDATE_URL, { cache: "no-store" });
+          if (!response.ok) return;
+          const data = await response.json();
+          
+          if (data.version && data.version !== CURRENT_VERSION) {
+              if (data.force_update) {
+                  // Block the UI completely
+                  $('sa-update-overlay').classList.remove('hidden');
+                  $('sa-new-version').innerText = data.version;
+                  $('sa-download-link').href = data.download_url;
+                  showToast(`CRITICAL: Version ${data.version} required.`, 'error', true);
+              } else {
+                  // Just show a warning log
+                  addEvent(`Update available: v${data.version}. Download from GitHub! 🚀`, 'warning');
+              }
+          }
+      } catch (e) {
+          console.log("[SmartAgent] Failed to check for updates.", e);
+      }
+    }
+
     // --- UI CONTROLLERS ---
     const setUiConnected = (connected, source = 'ui') => {
       state.connected = !!connected;
@@ -362,8 +420,13 @@
         $('sa-progress-text').innerText = `${completed} / ${total}`;
       }
       
+      // Physically disable Start & Step buttons while running so they can only trigger ONCE
+      btnStart.style.opacity = running ? '0.5' : '1';
+      btnStart.style.pointerEvents = running ? 'none' : 'auto';
+      btnStep.style.opacity = running ? '0.5' : '1';
+      btnStep.style.pointerEvents = running ? 'none' : 'auto';
+
       if (running) {
-        // If it was waiting, remove the persistent state
         if (hudToast.classList.contains('persistent')) {
             hudToast.classList.remove('persistent');
         }
@@ -390,7 +453,7 @@
         }
       } else {
           // ENGINE STOPPED: Only show the "Waiting" toast if it just transitioned from Running to Stopped
-          if (wasRunning) {
+          if (wasRunning || extra === 'init') {
               if (idleInterval) {
                   clearInterval(idleInterval);
                   idleInterval = null;
@@ -415,6 +478,9 @@
       const toastsEnabled = $('sa-toggle-toasts');
       if (!toastsEnabled || !toastsEnabled.checked) return;
       
+      // ANTI-SPAM: Do not show temporary toasts if engine is currently stopped
+      if (!state.engineRunning && !isPersistent) return;
+
       const toastText = $('sa-toast-text');
       const toastIcon = $('sa-toast-icon');
       const streamViz = $('sa-stream-viz');
@@ -455,7 +521,6 @@
     // --- THE "UNHINGED" GEN-Z BRAIN ---
     const formatLogStream = (originalMsg) => {
       const msg = String(originalMsg).toLowerCase();
-      
       const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
       if (msg.includes('idle thought')) return originalMsg.replace('[Idle Thought] ', '');
@@ -465,75 +530,62 @@
         "Scanning the ancient scrolls (aka problem statement)... why is this so long fr 📜😭",
         "Downloading constraints into my brain... brain.exe just crashed no cap 🧠💥"
       ]);
-      
       if (msg.includes('initiating mcq') || msg.includes('initiating coding')) return pick([
         "Eeny meeny miny moe... which option is the main character rn? 🎲✨",
         "Scanning targets... someone’s the fake boy/girl 👀🕵️‍♂️",
         "Let’s find out which one’s the impostor (it’s definitely B) 🎯😏"
       ]);
-      
       if (msg.includes('sending strict-token') || msg.includes('prompt to agentbridge')) return pick([
         "Pinging the mothership for the answer... wish me luck fr 🛸🙏",
         "Consulting the digital oracle... please work pls I’m begging ✨😭",
         "Waking up the big brain AI... it’s giving genius level 100 ⚡🧠"
       ]);
-      
       if (msg.includes('agentbridge response received') || msg.includes('successfully parsed') || msg.includes('parsing')) return pick([
         "Aha! The AI spoke. I’m literally crying in 4k 💡😭",
         "Solution acquired. I’m too smart for this school 😎📚💅",
         "Incoming genius payload... and it’s LOOKING good 📦✨💅"
       ]);
-      
       if (msg.includes('pasted code') || msg.includes('code injected') || msg.includes('injection')) return pick([
         "Code injected. Stand back, I’m doing science like Elon 🧪🚀😏",
         "Boom. Code pasted. Compiling... don’t fail me now bro 🤞😰",
         "Sneaking code into editor... ninja mode activated 🥷✨💀"
       ]);
-      
       if (msg.includes('submit code') || msg.includes('hunting for submit') || msg.includes('clicking option')) return pick([
         "Playing hide-and-seek with Submit button... where U HIDING 🔍😤",
         "Targeting Submit button... GOTCHA baby 🎯😏💅",
         "Clicking Submit like my GPA depends on it 🖱️📉💀"
       ]);
-      
       if (msg.includes('waiting for pass') || msg.includes('waiting for test') || msg.includes('execution')) return pick([
         "Holding my breath while grader judges us... am I basic? 🫣😭",
         "Spinning roulette wheel of test cases... luck pls 🎰✨🙏",
         "Moment of truth... bracing for mental damage 😬💀🔥"
       ]);
-      
       if (msg.includes('passed') || msg.includes('code execution summary') || msg.includes('success')) return pick([
         "Flawless victory! We’re literally unstoppable icons 🏆💅✨",
         "All green! Give me a digital high-five and a follow ✋📱💅",
         "Passed! Easy rizz. Next problem bae 💸😏🔥"
       ]);
-      
       if (msg.includes('majority of tests failed') || msg.includes('error') || msg.includes('failed to click')) return pick([
         "Oof, that’s RED OVERFLOW. Debugging goggles on fr 🥽🔥😭",
         "Well that was embarrassing... fixin’ this before my reputation dies 🛠️💀",
         "Yikes. Grader hated that. Plan B incoming... wish me luck 🔄🙏😰"
       ]);
-      
       if (msg.includes('language') || msg.includes('force java')) return pick([
         "Java’s acting cranky today. Pivoting to whatever works, no shame 🐍✨😏",
         "Couldn’t force Java. Going rogue like a true hacker 🏴‍☠️💀🔥"
       ]);
-      
       if (msg.includes('waiting') && msg.includes('next question')) return pick([
         "Chill out, waiting for the next target to drop... ⏳🍿",
         "Taking a micro-nap before the next round... 😴"
       ]);
-      
       if (msg.includes('next button') || msg.includes('advanced')) return pick([
         "Moving on to the next victim... ⏭️😈",
         "Next page! Let's keep this streak alive. 🏃‍♂️💨"
       ]);
-
       if (msg.includes('auto-solver') || msg.includes('single question')) return pick([
         "Autopilot engaged. Grab popcorn and watch me cook 🍿🚀🔥💅",
         "Going full-auto! Hands inside ride, no exceptions 🎢😏✨"
       ]);
-
       if (msg.includes('loop finished') || msg.includes('completed')) return "Mission accomplished. Dusting off my hands. 🧹✨";
 
       const chaosMemes = [
@@ -571,9 +623,8 @@
       
       requestAnimationFrame(() => eventFeed.scrollTop = eventFeed.scrollHeight);
       
-      if (state.engineRunning) {
-          showToast(message, type, false);
-      }
+      // Toast handles its own anti-spam logic internally now
+      showToast(message, type, false);
     };
   
     const toggleSettings = () => { 
@@ -689,6 +740,9 @@
     setUiConnected(false, 'init');
     updateButtonStyles('Auto');
     
+    // Check for updates on load
+    checkForUpdates();
+
     setTimeout(() => {
         setEngineState(false, 'init');
     }, 1000);
