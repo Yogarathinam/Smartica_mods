@@ -3,5 +3,6 @@
   "release_date": "2026-06-23",
   "notes": "Initial release of SmartAgent Helper Extension",
   "download_url": "https://github.com/Yogarathinam/Smartica_mods/archive/refs/heads/main.zip",
-  "force_update": true
+  "force_update": true,
+  "announcement": "A critical update is required. Please download the latest version to continue using SmartAgent Helper Extension."
 }

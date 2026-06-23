@@ -1,9 +1,23 @@
-// content-panel.js - SmartAgent Helper Floating Control Panel (Shadow DOM + Updater + Anti-Spam)
+// content-panel.js - SmartAgent Helper Floating Control Panel (Shadow DOM + Updater + Announcements)
 (() => {
   'use strict';
   
-  const CURRENT_VERSION = "1.0.0";
+  const CURRENT_VERSION = "0.0.1";
   const UPDATE_URL = "https://raw.githubusercontent.com/Yogarathinam/Smartica_mods/refs/heads/main/version.json";
+
+  // Helper to compare semantic versions properly
+  function isNewerVersion(remote, local) {
+      if (!remote) return false;
+      const rParts = remote.split('.').map(Number);
+      const lParts = local.split('.').map(Number);
+      for (let i = 0; i < Math.max(rParts.length, lParts.length); i++) {
+          const r = rParts[i] || 0;
+          const l = lParts[i] || 0;
+          if (r > l) return true;
+          if (r < l) return false;
+      }
+      return false;
+  }
 
   function initSmartAgentUI() {
     if (document.getElementById('smart-agent-host')) return;
@@ -27,7 +41,7 @@
     // --- HOST & SHADOW DOM ---
     const host = document.createElement('div');
     host.id = 'smart-agent-host';
-    host.style.cssText = 'position: fixed; bottom: 24px; left: 24px; z-index: 2147483647; width: 0; height: 0; overflow: visible; pointer-events: none;';
+    host.style.cssText = 'position: fixed; bottom: 24px; left: 24px; right: 24px; z-index: 2147483647; height: 0; overflow: visible; pointer-events: none; display: flex; justify-content: space-between;';
     document.body.appendChild(host);
   
     // Ghost input in Light DOM
@@ -68,7 +82,7 @@
       .justify-between { justify-content: space-between; }
       .hidden { display: none !important; }
       
-      .ui-wrapper { position: relative; width: 0; height: 0; }
+      .ui-wrapper { position: relative; width: 100%; height: 0; }
       
       .panel { position: absolute; bottom: 60px; left: 0; width: 330px; background: linear-gradient(145deg, var(--bg-main), #1A0B2E); border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8), 0 0 30px rgba(139, 92, 246, 0.25); display: flex; flex-direction: column; transform-origin: bottom left; transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s; }
       .panel.hidden-panel { transform: scale(0.9) translateY(20px); opacity: 0; pointer-events: none; }
@@ -145,9 +159,12 @@
       .dash-badge { position: absolute; top: 0px; right: 0px; width: 14px; height: 14px; border-radius: 50%; background: #64748b; border: 2px solid var(--bg-main); transition: 0.3s; }
       .dash-pill.hidden-pill { pointer-events: none; opacity: 0; }
       
-      /* HUD TOAST */
-      .hud-toast { position: absolute; bottom: 60px; left: 0; background: rgba(10, 5, 25, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(139, 92, 246, 0.3); border-left: 4px solid var(--accent-pink); border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.8), inset 0 0 15px rgba(139,92,246,0.1); max-width: 380px; width: max-content; opacity: 0; pointer-events: none; transform: translateY(20px) scale(0.95); transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1); z-index: 40; }
-      .hud-toast.elevated { bottom: 460px; } 
+      /* TOAST REPOSITIONING LOGIC */
+      .hud-toast { position: absolute; bottom: 60px; left: 0; background: rgba(10, 5, 25, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(139, 92, 246, 0.3); border-left: 4px solid var(--accent-pink); border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.8), inset 0 0 15px rgba(139,92,246,0.1); max-width: 380px; width: max-content; opacity: 0; pointer-events: none; transform: translateY(20px) scale(0.95); transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1), left 0.4s, right 0.4s; z-index: 40; }
+      
+      /* Shift to the right side if the panel is open so it doesn't overlap */
+      .hud-toast.shifted { left: 350px; right: auto; }
+      
       .hud-toast.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
       
       .hud-toast-text { font-size: 13px; font-weight: 700; color: #F8FAFC; letter-spacing: 0.02em; line-height: 1.4; }
@@ -173,6 +190,7 @@
         text-align: center; border: 1px solid var(--accent-red);
       }
       .update-title { color: var(--accent-red); font-size: 16px; font-weight: 900; letter-spacing: 0.1em; margin: 12px 0 6px 0; }
+      .update-announcement { background: rgba(251, 191, 36, 0.1); border-left: 3px solid var(--accent-yellow); color: #FDE68A; font-size: 11px; font-weight: 600; padding: 10px; margin-bottom: 16px; border-radius: 0 6px 6px 0; width: 100%; text-align: left; }
       .update-text { font-size: 11px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
       .update-btn {
         background: var(--accent-red); color: #fff; padding: 10px 20px; border-radius: 8px;
@@ -278,13 +296,14 @@
           <div id="sa-update-overlay" class="update-overlay hidden">
              <div style="color:var(--accent-red);">${Icons.warning}</div>
              <div class="update-title">UPDATE REQUIRED</div>
+             <div id="sa-announcement-box" class="update-announcement hidden"></div>
              <div class="update-text">A critical new version (<span id="sa-new-version"></span>) is available.<br>Your current version (${CURRENT_VERSION}) is deprecated.</div>
              <a id="sa-download-link" href="#" target="_blank" class="update-btn">DOWNLOAD UPDATE .ZIP</a>
              <div class="update-guide">
                 <b style="color:#fff;">How to install:</b><br>
                 1. Extract the downloaded .zip file.<br>
-                2. Open Chrome and go to <b>chrome://extensions/</b><br>
-                3. Enable <b>Developer Mode</b> (top right corner).<br>
+                2. Go to <b>chrome://extensions/</b><br>
+                3. Enable <b>Developer Mode</b>.<br>
                 4. Click <b>Load unpacked</b> and select the extracted folder.
              </div>
           </div>
@@ -357,16 +376,23 @@
           if (!response.ok) return;
           const data = await response.json();
           
-          if (data.version && data.version !== CURRENT_VERSION) {
+          if (isNewerVersion(data.version, CURRENT_VERSION)) {
               if (data.force_update) {
                   // Block the UI completely
                   $('sa-update-overlay').classList.remove('hidden');
                   $('sa-new-version').innerText = data.version;
                   $('sa-download-link').href = data.download_url;
+                  
+                  // If there is an announcement, display it prominently
+                  if (data.announcement) {
+                      $('sa-announcement-box').innerText = data.announcement;
+                      $('sa-announcement-box').classList.remove('hidden');
+                  }
+                  
                   showToast(`CRITICAL: Version ${data.version} required.`, 'error', true);
               } else {
                   // Just show a warning log
-                  addEvent(`Update available: v${data.version}. Download from GitHub! 🚀`, 'warning');
+                  addEvent(`Update available: v${data.version}. Check GitHub! 🚀`, 'warning');
               }
           }
       } catch (e) {
@@ -503,8 +529,8 @@
       const bars = streamViz.querySelectorAll('.stream-bar');
       bars.forEach(bar => bar.style.backgroundColor = active.icColor);
       
-      if (!isMinimized) hudToast.classList.add('elevated');
-      else hudToast.classList.remove('elevated');
+      if (!isMinimized) hudToast.classList.add('shifted');
+      else hudToast.classList.remove('shifted');
       
       clearTimeout(toastTimeout);
       
@@ -587,6 +613,7 @@
         "Going full-auto! Hands inside ride, no exceptions 🎢😏✨"
       ]);
       if (msg.includes('loop finished') || msg.includes('completed')) return "Mission accomplished. Dusting off my hands. 🧹✨";
+      if (msg.includes('action required')) return "Hold up! I need you to manually switch to Java for me... 👀";
 
       const chaosMemes = [
         "random meme energy... bruh what even happened 😭",
@@ -640,12 +667,12 @@
         panel.classList.remove('hidden-panel');
         dashPill.classList.add('hidden-panel');
         isMinimized = false;
-        if(hudToast.classList.contains('show')) hudToast.classList.add('elevated');
+        if(hudToast.classList.contains('show')) hudToast.classList.add('shifted');
       } else {
         panel.classList.add('hidden-panel');
         dashPill.classList.remove('hidden-panel');
         isMinimized = true;
-        hudToast.classList.remove('elevated');
+        hudToast.classList.remove('shifted');
       }
     };
   
