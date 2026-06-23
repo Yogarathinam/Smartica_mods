@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   
-  const CURRENT_VERSION = "0.0.1";
+  const CURRENT_VERSION = "1.0.0";
   const UPDATE_URL = "https://raw.githubusercontent.com/Yogarathinam/Smartica_mods/refs/heads/main/version.json";
 
   // Helper to compare semantic versions properly

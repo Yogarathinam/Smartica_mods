@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "SmartAgent + Always Active",
-  "version": "1.0.2",
-  "description": "SmartAgent Helper combined seamlessly with Always Active Window.",
+  "name": "SmartAgent Helper",
+  "version": "1.0.0",
+  "description": "SmartAgent Helper is Automator combined seamlessly with Always Active Window to Help with your Test.",
   "default_locale": "en",
   "update_url": "https://clients2.google.com/service/update2/crx",
   "homepage_url": "https://agentbridge-cloud.vercel.app/",
